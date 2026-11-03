@@ -4,6 +4,7 @@ from direct.task.Task import TaskManager
 from typing import Callable
 from direct.task import Task
 from SpaceJamClasses import Missile
+from direct.gui.OnscreenImage import OnscreenImage, TransparencyAttrib
 
 class Spaceship(SphereCollideObject):
     def __init__(self, loader: Loader, taskMgr: TaskManager, accept: Callable[[str, Callable], None], modelPath:str, parentNode: NodePath, nodeName: str, texPath: str, posVec: Vec3, scalevec: float):
@@ -20,6 +21,7 @@ class Spaceship(SphereCollideObject):
         self.accept = accept
         self.render = parentNode
         self.SetKeyBindings()
+        self.EnableHUD()
 
         self.reloadTime = .25
         self.missileDistance = 4000 # Until the missile explodes.
@@ -47,14 +49,14 @@ class Spaceship(SphereCollideObject):
             Missile.Intervals[tag].start()
         else:
             # If we aren't reloading, we want to start reloading.
-            if not self.taskMgr.hasTasknamed('reload'):
+            if not self.taskMgr.hasTaskNamed('reload'):
                 print('Initializing reload...')
                 # Call the reload method on no delay.
                 self.taskMgr.doMethodLater(0, self.Reload, 'reload')
                 return Task.cont
-
+    
     def Reload(self, task):
-        if task.time < self.reloadTime:
+        if task.time > self.reloadTime:
             self.missileBay =+ 1
             print("Reload complete.")
             if self.missileBay > 1:
@@ -79,6 +81,10 @@ class Spaceship(SphereCollideObject):
                 # We break because when things are deleted from a dictionary, we have to refactor the dictionary so we can reuse it. This is because when we delete things, there's a gap at that point.
                 break
         return Task.cont
+
+    def EnableHUD(self):
+        self.Hud = OnscreenImage(image = "./Assets/Hud/Reticle3b.png", pos = Vec3(0, 0, 0), scale = 0.1)
+        self.Hud.setTransparency(TransparencyAttrib.MAlpha)
     
     def SetKeyBindings(self):
         # All of out key bindings for our spaceship's movement
@@ -97,7 +103,6 @@ class Spaceship(SphereCollideObject):
         self.accept('e', self.RollRight, [1])
         self.accept('e-up', self.RollRight, [0])
         self.accept('f', self.Fire)
-        self.accept('r', self.Reload)
         
     def LeftTurn(self, keyDown):
         if keyDown:
