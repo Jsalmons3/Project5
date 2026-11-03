@@ -25,6 +25,8 @@ class Spaceship(SphereCollideObject):
         self.missileDistance = 4000 # Until the missile explodes.
         self.missileBay = 1 # Only one misslile in the missile bay to be launched.
         self.loader = loader
+
+        self.taskMgr.add(self.CheckIntervals, 'checkMissiles', 34)
         
     def Fire(self):
         if self.missileBay:
@@ -43,7 +45,41 @@ class Spaceship(SphereCollideObject):
             # "fluid = 1" makes collision be checked between the last interval and this interval to make sure there's nothing in-betwwn both checks that wasn't hit.
             Missile.Intervals[tag] = currentMissile.modelNode.posInterval(2.0, travVec, startPos = posVec, fluid = 1)
             Missile.Intervals[tag].start()
+        else:
+            # If we aren't reloading, we want to start reloading.
+            if not self.taskMgr.hasTasknamed('reload'):
+                print('Initializing reload...')
+                # Call the reload method on no delay.
+                self.taskMgr.doMethodLater(0, self.Reload, 'reload')
+                return Task.cont
 
+    def Reload(self, task):
+        if task.time < self.reloadTime:
+            self.missileBay =+ 1
+            print("Reload complete.")
+            if self.missileBay > 1:
+                self.missileBay = 1
+            return Task.done
+        elif task.time <= self.reloadTime:
+            print("Reload Proceeding...")
+            return Task.cont
+
+    def CheckIntervals(self, task):
+        for i in Missile.Intervals:
+            # isPlaying returns true or false to see if the missile has gotten to the end of its path.
+            if not Missile.Intervals[i].isPlaying():
+                # if its path is done, we get rid of everything to do with that missile.
+                Missile.cNodes[i].detachNode()
+                Missile.fireModels[i].detachNode()
+                del Missile.Intervals[i]
+                del Missile.fireModels[i]
+                del Missile.cNodes[i]
+                del Missile.collisionSolids[i]
+                print(i + " has reached the end of its fire solution.")
+                # We break because when things are deleted from a dictionary, we have to refactor the dictionary so we can reuse it. This is because when we delete things, there's a gap at that point.
+                break
+        return Task.cont
+    
     def SetKeyBindings(self):
         # All of out key bindings for our spaceship's movement
         self.accept('space', self.Thrust, [1])
@@ -61,6 +97,7 @@ class Spaceship(SphereCollideObject):
         self.accept('e', self.RollRight, [1])
         self.accept('e-up', self.RollRight, [0])
         self.accept('f', self.Fire)
+        self.accept('r', self.Reload)
         
     def LeftTurn(self, keyDown):
         if keyDown:
