@@ -3,6 +3,7 @@ from panda3d.core import Loader, NodePath, Vec3
 from direct.task.Task import TaskManager
 from typing import Callable
 from direct.task import Task
+from SpaceJamClasses import Missile
 
 class Spaceship(SphereCollideObject):
     def __init__(self, loader: Loader, taskMgr: TaskManager, accept: Callable[[str, Callable], None], modelPath:str, parentNode: NodePath, nodeName: str, texPath: str, posVec: Vec3, scalevec: float):
@@ -20,6 +21,29 @@ class Spaceship(SphereCollideObject):
         self.render = parentNode
         self.SetKeyBindings()
 
+        self.reloadTime = .25
+        self.missileDistance = 4000 # Until the missile explodes.
+        self.missileBay = 1 # Only one misslile in the missile bay to be launched.
+        self.loader = loader
+        
+    def Fire(self):
+        if self.missileBay:
+            travRate = self.missileDistance
+            aim = self.render.getRelativeVector(self.modelNode, Vec3.forward()) # The direction the spaceship is facing.
+            # Normalizing a vector makes it consistant all the time.
+            aim.normalize()
+            fireSolution = aim * travRate
+            inFront = aim * 150
+            travVec = fireSolution + self.modelNode.getPos()
+            self.missileBay -= 1
+            tag = 'Missile' + str(Missile.missileCount)
+            posVec = self.modelNode.getPos() + inFront # Spawn the missile in front of the nose of the ship.
+            # Create our missile.
+            currentMissile = Missile(self.loader, "./Assets/Phaser/phaser.egg", self.render, tag, posVec, 4.0)
+            # "fluid = 1" makes collision be checked between the last interval and this interval to make sure there's nothing in-betwwn both checks that wasn't hit.
+            Missile.Intervals[tag] = currentMissile.modelNode.posInterval(2.0, travVec, startPos = posVec, fluid = 1)
+            Missile.Intervals[tag].start()
+
     def SetKeyBindings(self):
         # All of out key bindings for our spaceship's movement
         self.accept('space', self.Thrust, [1])
@@ -36,6 +60,7 @@ class Spaceship(SphereCollideObject):
         self.accept('q-up', self.RollLeft, [0])
         self.accept('e', self.RollRight, [1])
         self.accept('e-up', self.RollRight, [0])
+        self.accept('f', self.Fire)
         
     def LeftTurn(self, keyDown):
         if keyDown:
